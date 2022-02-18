@@ -1,0 +1,241 @@
+---
+title: "Homework 3"
+subtitle: "4375 Machine Learning with Dr. Mazidi"
+author: "Anthony Martinez | netid: amm180005"
+date: "9/15/21"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+This homework runs logistic regression to predict the binary feature of whether or not a person was admitted to graduate school, based on a set of predictors: GRE score, TOEFL score, rating of undergrad university attended, SOP statement of purpose, LOR letter or recommendation, Undergrad GPA, Research experience (binary).
+
+The data set was downloaded from Kaggle: https://www.kaggle.com/mohansacharya/graduate-admissions
+
+The data is available in Piazza. 
+
+## Step 1 Load the data
+
+* Load the data
+* Examine the first few rows with head()
+
+```{r}
+# your code here
+df<-read.csv("data/Admission_Predict.csv", header=TRUE)
+head(df)
+
+```
+
+## Step 2 Data Wrangling
+
+Perform the following steps:
+
+* Make Research a factor
+* Get rid of the Serial No column
+* Make a new column that is binary factor based on if Chance.of.Admit > 0.5. Hint: See p. 40 in the book. 
+* Output column names with names() function
+* Output a summary of the data
+* Is the data set unbalanced? Why or why not?
+
+ Your commentary here: The data set is unbalanced. Of the 400 observations 365 have a chance of admit > 5. While only 35 of the 400 observations have chance of admit of < .5. When data is unbalanced it can pose problems for classification algorithms. We should keep this in mind when we review the preformance of our models.
+
+```{r}
+# your code here
+
+#Make Research a factor
+df$Research <- factor(df$Research)
+
+# Get rid of the Serial No column
+df <- df[-c(1)]
+
+# Make a new column that is binary factor based on if Chance.of.Admit > 0.5. Hint: See p. 40 in the book. 
+df$Admit <- FALSE
+df$Admit[df$Chance.of.Admit >.5] <- TRUE
+df$Admit <- factor(df$Admit)
+
+# The code below counts the number of observations that have true and false. To see if the data is unbalanced or not 
+#x <- sum(df$Admit==TRUE) # how many obs are > .5
+#x
+#y <- sum(df$Admit==FALSE) # how many obs are < .5
+
+# Output column names with names() function
+names(df)
+
+```
+
+```{r}
+# put the summary here
+summary(df)
+```
+
+## Step 3 Data Visualization
+
+* Create a side-by-side graph with Admit on the x axis of both graphs, GRE score on the y axis of one graph and TOEFL score on the y axis of the other graph; save/restore the original graph parameters
+* Comment on the graphs and what they are telling you about whether GRE and TOEFL are good predictors
+* You will get a lot of warnings, you can suppress them with disabling warnings as shown below:
+
+```
+{r,warning=FALSE}
+```
+
+Your commentary here: These box plots shows us that the Chance.of.Admit > .50 observations are associated with both higher GRE scores and higher TOEFL scores. This means that GRE and TOEFL scores make good predictors.
+
+```{r,warning=FALSE}
+# your code here
+
+# copy/save original parameter settings
+opar <- par() 
+
+# set up side-by-side grid
+par(mfrow=c(1,2))
+
+# varwidth=TRUE makes the bozplot widths proportional to the square root of the sample sizes
+plot(df$Admit, df$GRE.Score, main="Admit and GRE Score", xlab="Admit", ylab="GRE Score", varwidth=TRUE)
+plot(df$Admit, df$TOEFL.Score, main="Admit and TOEFL", xlab="Admit", ylab="TOEFL Score", varwidth=TRUE)
+
+# restore original graph parameters
+par(opar)
+```
+
+
+## Step 4 Divide train/test
+
+* Divide into 75/25 train/test, using seed 1234
+
+```{r}
+# your code here
+
+set.seed(1234)
+i <- sample(1:nrow(df), .75*nrow(df), replace=FALSE)
+train <- df[i,]
+test <- df[-i,]
+```
+
+## Step 5 Build a Model with all predictors 
+
+* Build a model, predicting Admit from all predictors
+* Output a summary of the model
+* Did you get an error? Why? Hint: see p. 120 Warning
+
+Your commentary here: The reason we get a warning here is because the data is perfectly or close to perfectly lineraly seperable. Since R cannot maximize the likelihood which already has separated the data well, it throws warning messages. R is essentially suspicous and says the data is "too good". However, since it is just warnings it will still go ahead with the model.  
+
+```{r}
+# your code here
+
+#  predicting Admit from all predictors
+glm1 <- glm(Admit~., data=train, family = binomial) # note we need family=binomial for logistic regression
+summary(glm1)
+
+
+```
+
+## Step 6 Build a Model with all predictors except Chance.of.Admit
+
+* Build another model, predicting Admit from all predictors *except* Chance.of.Admit
+* Output a summary of the model
+* Did you get an error? Why or why not?
+
+Commentary: Building this model we do not get any warning. The reason for this is because the data is not too close to being perfect. If we were to print the accuracy of the model we would not get a value of "1" which would indicate data is "too easy" to classify. 
+
+```{r}
+# your code here
+
+# building model predicting admit from all predictors except "Chance.of.admit"
+glm2 <- glm(Admit~.-Chance.of.Admit, data = train, family = binomial)
+summary(glm2)
+```
+
+## Step 7 Predict probabilities
+
+* Predict the probabilities using type="response"
+* Examine a few probabilities and the corresponding Chance.of.Admit values
+* Run cor() on the predicted probs and the Chance.of.Admit, and output the correlation
+* What do you conclude from this correlation. 
+
+Your commentary here: A correlation of 64.85% means there is a decent correlation between the our predicted probs and the Chance.of.Admit  This means are model did pretty well.
+
+```{r}
+# your code here
+
+# getting probabilitues
+probs <- predict(glm2, newdata = test, type="response") # we need type=response becuase it gets the probabilities out of the model. The model outputs log-odds but by requesting 'response' we get these values converted to probabilities.
+
+# look at a few probabilities 
+head(probs)
+
+cor1 <- cor(probs,test$Chance.of.Admit)
+cor1
+```
+
+## Step 8 Make binary predictions, print table and accuracy
+
+* Run predict() again, this time making binary predictions NOTE: Professor Mazidi stated on Piazza than we do not need to run predict again, just convert probs to binary predictions using the ifelse()
+* Output a table comparing the predictions and the binary Admit column
+* Calculate and output accuracy
+* Was the model able to generalize well to new data?
+
+Your commentary here: The accuracy for glm2 is 94%. This is really good but we need to consider the data. Recall that the data is unbalanced. This can pose problems for classification algorithms such as logistic regression. We should'nt be too impressed with this high accuracy number and take it with a grain of salt.
+
+```{r}
+# your code here
+
+# Making binary predictions
+pred <- ifelse(probs>0.5, 2, 1)
+
+# calculate and ouput accuracy
+acc <- mean(pred==as.integer(test$Admit))
+print(paste("glm2 accuracy = ", acc))
+
+# Output table comparing the predictions and the binary Admit column
+table(pred,test$Admit)
+```
+
+## Step 9 Output ROCR and AUC
+
+* Output a ROCR graph
+* Extract and output the AUC metric
+
+```{r}
+# your code here
+
+# load library ISLR
+if (!require("ROCR")){
+  install.packages("ROCR")
+}
+library(ISLR)
+
+# output a ROCR graph
+# ROC is a curbe that plots the true positve rate (TPR) against FPR at various threshold settings
+p <- predict(glm2, newdata = test, type="response")
+pr <- prediction(p, test$Admit)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+
+# compute AUC | a value close to 1 is good
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc 
+```
+
+
+## Step 10
+
+* Make two more graphs and comment on what you learned from each graph:
+  * Admit on x axis, SOP on y axis
+  * Research on x axis, SOP on y axis
+  
+Your commentary here: 
+Plot 1 tells us that Chances.of.Admit > .5 observations are associated with SOP. Which means SOP is a good predictor. 
+Plot 2 tells us that Research of "1" observations are somewhat associated with SOP values. There is not too much of a differnce in median values when Research is 1 vs when Research is 0 (about 1.0 difference). However, it can be seen that when Research is "0" the observations tend to have lower SOPs. And when Research is 1, the observations tend to have higher SOP values
+
+
+
+```{r}
+# plot 1
+plot(df$Admit, df$SOP, main="Admit and SOP", xlab="Admit", ylab="SOP", varwidth=TRUE)
+
+# plot 2
+plot(df$Research, df$SOP, main="Research and SOP", xlab="Research", ylab="SOP", varwidth=TRUE)
+```
+

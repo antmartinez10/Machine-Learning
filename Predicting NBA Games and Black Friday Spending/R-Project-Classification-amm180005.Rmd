@@ -1,0 +1,263 @@
+---
+title: "R Project - Classification"
+subtitle: "4375 Machine Learning with Dr. Mazidi"
+author: "Anthony Martinez | netid: amm180005"
+date: "10/17/21"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+Project: Using data from NBA games spanning from 2004-2015 I will us ML classification algorithms to predict the winner.
+
+The data set was downloaded from Kaggle: https://www.kaggle.com/nathanlauga/nba-games
+
+## Load the data
+```{r}
+df0<-read.csv("data/games.csv", header=TRUE)
+
+```
+## Data Exploreation
+
+* use at least 5 R functions for data exploration
+* create at least 2 informative R graphs for data exploration
+
+I am a little surprised that the mean of points scored for home teams was only 2.8 
+points higher than the mean of points scored for away teams. I was planning on using home court advantage as a predictor, but maybe it won't make the best predictor.
+
+```{r}
+# Use head to get a peak at the first 5 observations in the data
+head(df0)
+
+# Using summary to get statistics for each column
+summary(df0)
+
+# Using names to get the names of the columns in the data set
+names(df0)
+
+# just out of curiosity I wanted to see if there was any difference between names() and colnames() functions
+colnames(df0)
+
+# using str() to get row/column counts and info on each column
+str(df0)
+
+# calculating mean on the PTS_home column
+# Notice that we get NA for the answer
+# This means we must have missing values in this column
+mean(df0$PTS_home)
+
+# I will remove the na's from the columns that will be used in the model during the data cleaning portion 
+mean(df0$PTS_home, na.rm=TRUE)
+
+# Get mean of PTS scored for away teams
+mean(df0$PTS_away, na.rm=TRUE)
+
+
+boxplot(df0$FG_PCT_home, col="slategray", horizontal=TRUE, xlab="Home Team FG Percentage",
+main="Home Team Field Goal Percentage")
+
+boxplot(df0$FG_PCT_away, col="slategray", horizontal=TRUE, xlab="Away Team FG Percentage",
+main="Away Team Field Goal Percentage")
+
+# making column factor so we can plot
+df0$HOME_TEAM_WINS <- factor(df0$HOME_TEAM_WINS, levels=c("1", "0"))
+plot(df0$HOME_TEAM_WINS,df0$FG3_PCT_home, xlab="Home Team Wins", ylab="Home Team 3-PT Percentage")
+
+#There seens to be a relationship between the home team winning and the home team's
+# 3 point percentage
+
+```
+## Data Cleaning
+
+* Link to data: https://www.kaggle.com/nathanlauga/nba-games
+* describe what steps you had to do for data cleaning (more points for messier
+data that needed cleaning)
+
+I Performed the following steps:
+1) Deleted columns that were note needed or unable to help us predict winning teams
+2) count the NAs in each of the columns
+3) Replace NA with mean
+
+```{r}
+# The follwing columns are not very useful for what we are trying to accomplish
+# which is, predicting who will win 
+
+#game_id: col2
+#Game_Status_Text : col 3
+#home_team_id id : col 4
+#visitor_team_id: col 5
+#team_id_home : 7
+#team_id_away: 14
+#game status
+
+#count NAs
+sapply(df0, function(x) sum(is.na(x)))
+
+# remove columns that are unnessary
+df <- df0[-c(2,3,4,5,7,14)]
+
+
+# removing those columns coinicidently made it easier to replace NAs in the columns that contained NAs
+df$PTS_home[is.na(df$PTS_home)] <- mean(df$PTS_home, na.rm=TRUE)
+df$FG_PCT_home[is.na(df$FG_PCT_home)] <- mean(df$FG_PCT_home, na.rm=TRUE)
+df$FT_PCT_home[is.na(df$FT_PCT_home)] <- mean(df$FT_PCT_home, na.rm=TRUE)
+df$FG3_PCT_home[is.na(df$FG3_PCT_home)] <- mean(df$FG3_PCT_home, na.rm=TRUE)
+df$AST_home[is.na(df$AST_home)] <- mean(df$AST_home, na.rm=TRUE)
+df$REB_home[is.na(df$REB_home)] <- mean(df$REB_home, na.rm=TRUE)
+df$PTS_away[is.na(df$PTS_away)] <- mean(df$PTS_away, na.rm=TRUE)
+df$FG_PCT_away[is.na(df$FG_PCT_away)] <- mean(df$FG_PCT_away, na.rm=TRUE)
+df$FT_PCT_away[is.na(df$FT_PCT_away)] <- mean(df$FT_PCT_away, na.rm=TRUE)
+df$FG3_PCT_away[is.na(df$FG3_PCT_away)] <- mean(df$FG3_PCT_away, na.rm=TRUE)
+df$AST_away[is.na(df$AST_away)] <- mean(df$AST_away, na.rm=TRUE)
+df$REB_away[is.na(df$REB_away)] <- mean(df$REB_away, na.rm=TRUE)
+
+#show na's are deleted
+sapply(df, function(x) sum(is.na(x)))
+
+```
+
+## Divide train/test
+
+* Divide into 75/25 train/test, using seed 1234
+
+```{r}
+# your code here
+
+set.seed(1234)
+i <- sample(1:nrow(df), .75*nrow(df), replace=FALSE)
+train <- df[i,]
+test <- df[-i,]
+```
+
+## Algorithm 1: Logistic Regression 
+* code to run the algorithms
+* commentary on feature selection you selected and why
+* code to compute your metrics for evaluation as well as commentary discussing the 
+
+Commentary on Features Chosen: I decided to predict based on the field goal percentage of both 2-pointers
+and 3 pointers for each team. Winning comes down to who scores more points. However, predicting simply on 
+the number of points is too simple. The number of points scored can vary due to the quality of defence from 
+team to team. The percentage of made shots will vary less. 
+
+Commentary on Results: The algorithm was able to predict the home team winning with only 50% accuracy.  
+
+```{r}
+attach(df)
+glm1 <- glm(HOME_TEAM_WINS~FG_PCT_home+FG_PCT_away+FG3_PCT_home+FG3_PCT_away, data=train, family="binomial")
+
+summary(glm1)
+
+probs <- predict(glm1, newdata=test, type="response")
+pred <- ifelse(probs>.5,2,1)
+log_reg_acc <- mean(pred==test$HOME_TEAM_WINS)
+print(paste("accuracy = ", log_reg_acc))
+
+table(pred,test$HOME_TEAM_WINS)
+
+detach()
+
+```
+
+## Alogorithm 2: Naive Bayes
+* code to run the algorithms
+* commentary on feature selection you selected and why
+* code to compute your metrics for evaluation as well as commentary discussing the results
+
+Commentary on Features Chosen: I decided to predict based on the field goal percentage of both 2-pointers
+and 3 pointers for each team. Winning comes down to who scores more points. However, predicting simply on 
+the number of points is too simple. The number of points scored can vary due to the quality of defence from 
+team to team. The percentage of made shots will vary less.
+
+Commentary of Results: The Naive Bayes model had an accuracy of 80% which is very good. State of the art NBA prediting projects have an accuracy around 85%.
+
+```{r}
+attach(df)
+set.seed(1234)
+i <- sample(1:nrow(df), .75*nrow(df), replace=FALSE)
+train2 <- df[i,]
+test2 <- df[-i,]
+
+library(e1071)
+
+nb1 <- naiveBayes(HOME_TEAM_WINS~FG_PCT_home+FG_PCT_away+FG3_PCT_home+FG3_PCT_away, data=train2)
+nb1
+
+p1 <- predict(nb1, newdata=test2, type="class")
+table(p1, test2$HOME_TEAM_WINS)
+
+naive_acc <- mean(p1==test$HOME_TEAM_WINS)
+print(naive_acc)
+detach(df)
+```
+
+## Algorithm 3: SVM
+* code to run the algorithms
+* commentary on feature selection you selected and why
+* code to compute your metrics for evaluation as well as commentary discussing the results
+
+Commentary on Features Chosen: I decided to predict based on the field goal percentage of both 2-pointers
+and 3 pointers for each team. Winning comes down to who scores more points. However, predicting simply on 
+the number of points is too simple. The number of points scored can vary due to the quality of defence from 
+team to team. The percentage of made shots will vary less.
+
+Commentary of Results: The SVM model had an accuracy of 81% which is the highest out of all 3 models. 
+```{r}
+attach(df)
+set.seed(1234)
+i <- sample(1:nrow(df), .75*nrow(df), replace=FALSE)
+train3 <- df[i,]
+test3 <- df[-i,]
+
+library(e1071)
+svm1 <- svm(HOME_TEAM_WINS~FG_PCT_home+FG_PCT_away+FG3_PCT_home+FG3_PCT_away, data=train3, kernel="linear", cost=10, scale=TRUE)
+detach(df)
+
+```
+
+## SVM Results
+```{r}
+summary(svm1)
+pred3 <- predict(svm1, newdata=test3)
+table(pred3,test3$HOME_TEAM_WINS)
+svm_acc <- mean(pred3==test3$HOME_TEAM_WINS)
+svm_acc
+
+
+```
+
+
+## Results analysis
+* rank the algorithms from best to worst performing on your data
+* add commentary on the performance of the algorithms
+* your analysis concerning why the best performing algorithm worked best on that data
+* commentary on what your script was able to learn from the data (big picture)
+and if this is likely to be useful
+
+Ranking Commentary: As we can see from the results SVM had the highest accuracy at 81.4%.
+Naive Bayes came in at a close second with 80.6% and logistic regression scored the lowest
+with only 50.2% accuracy. 
+
+Commentary on Performance:
+Logistic Regression: The algorithm was the worst preforming out of the three with only 50% accuracy. It correctly classifed 3097 postive values and 1922 negative values.
+While incorrectly classifying 661 positive values and 490 negative values.
+
+Naive Bayes: Naive Bayes had the 2nd highest accuracy at 80.6%. The model was able to correctly classify 3089 postive values and 1886 negaitve values. While incorrectly 
+classifying 498 negative values and 687 positive values.
+
+SVM: SVM had the highest accuracy score with 81%. The model correctly classified 3082 postive values and 1940 negative values. While misclassifying 505 negative values
+and 643 positive values.
+
+
+Analysis on best preforming algorithm: The fact that my SVM model was the top preforming alrogithm was not surprising to me. SVMs are used by the top preforming NBA game predicting projects. The reason why SVMs work well  with data sets such as NBA statistics is because they contain many interdependent and related features. For example, points scored is somewhat related to the amount of shots taken, or the number of assisted is somewhat intertwined with the number of points scored, etc. SVMs are able to create multi-dimensional feature vectors which means they are capable of capturing the interactions between these realted feautres in the statistics. 
+ 
+ 
+Big Picture: What the script was able to from the data is that sports statistics, such as NBA statistics for this data set, have many intertwined statsitcs that have 
+some relationship with one another. Because of this, some ML algorithms can have a difficult time correctly classifying results. When it comes to dealing with data sets with many related features, such as statistics for sports, Support Vector Machines are a good option to deal with these related features due to thier abillity to create multi-dimensional feature vectors. 
+
+```{r}
+print(paste("Logistic Regression accuracy", log_reg_acc))
+print(paste("Naive Bayes accuracy", naive_acc))
+print(paste("Support Vector Machine (SVM) accuracy", svm_acc))
+
+```
+

@@ -1,0 +1,153 @@
+---
+title: "Homework 7"
+subtitle: "4375 Machine Learning with Dr. Mazidi"
+author: "Anthony Martinez | amm180005"
+date: "10/31/21"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+I decided to use my classification data set from the R Project. The dataset includes a variatey of team statistics from the 2004-2015 NBA seasons. The goal is to predicted the winner of NBA games using the team's field goal percentage for 2 and 3 pointers. These metrics are an indication of how efficient a team is at scoring points. 
+
+# Load/Preprocess the data set.
+### Load data
+
+```{r}
+# load data
+df0<-read.csv("data/games.csv", header=TRUE)
+```
+
+### Data Cleaning
+
+```{r}
+#count NAs
+sapply(df0, function(x) sum(is.na(x)))
+
+# remove columns that are unnecessary
+df <- df0[-c(2,3,4,5,7,14)]
+
+# removing those columns coincidentally made it easier to replace NAs in the columns that contained NAs
+df$PTS_home[is.na(df$PTS_home)] <- mean(df$PTS_home, na.rm=TRUE)
+df$FG_PCT_home[is.na(df$FG_PCT_home)] <- mean(df$FG_PCT_home, na.rm=TRUE)
+df$FT_PCT_home[is.na(df$FT_PCT_home)] <- mean(df$FT_PCT_home, na.rm=TRUE)
+df$FG3_PCT_home[is.na(df$FG3_PCT_home)] <- mean(df$FG3_PCT_home, na.rm=TRUE)
+df$AST_home[is.na(df$AST_home)] <- mean(df$AST_home, na.rm=TRUE)
+df$REB_home[is.na(df$REB_home)] <- mean(df$REB_home, na.rm=TRUE)
+df$PTS_away[is.na(df$PTS_away)] <- mean(df$PTS_away, na.rm=TRUE)
+df$FG_PCT_away[is.na(df$FG_PCT_away)] <- mean(df$FG_PCT_away, na.rm=TRUE)
+df$FT_PCT_away[is.na(df$FT_PCT_away)] <- mean(df$FT_PCT_away, na.rm=TRUE)
+df$FG3_PCT_away[is.na(df$FG3_PCT_away)] <- mean(df$FG3_PCT_away, na.rm=TRUE)
+df$AST_away[is.na(df$AST_away)] <- mean(df$AST_away, na.rm=TRUE)
+df$REB_away[is.na(df$REB_away)] <- mean(df$REB_away, na.rm=TRUE)
+
+#show na's are deleted
+sapply(df, function(x) sum(is.na(x)))
+```
+### Split Data Into Test Train
+
+```{r}
+set.seed(1234)
+i <- sample(1:nrow(df), .75*nrow(df), replace=FALSE)
+train <- df[i,]
+test <- df[-i,]
+```
+
+### Random Forest
+
+```{r}
+library(randomForest)
+set.seed(1234)
+
+train$HOME_TEAM_WINS <- as.factor(train$HOME_TEAM_WINS)
+test$HOME_TEAM_WINS <- as.factor(test$HOME_TEAM_WINS)
+rf <- randomForest(HOME_TEAM_WINS~FG_PCT_home+FG_PCT_away+FG3_PCT_home+FG3_PCT_away, data=train, importance=TRUE)
+
+```
+### Random Forest Preformance Metrics
+
+```{r}
+library(mltools)
+rf
+pred <- predict(rf, newdata=test, type="response")
+acc_rf <- mean(pred==test$HOME_TEAM_WINS)
+mcc_rf <- mcc(factor(pred), test$HOME_TEAM_WINS)
+print(paste("accuracy=", acc_rf))
+print(paste("mcc=", mcc_rf))
+```
+
+### Bagging
+```{r}
+#If mtry is set to the number of predictors, then bagging is performed instead of the Random Forest.
+
+bagging <- randomForest(HOME_TEAM_WINS~FG_PCT_home+FG_PCT_away+FG3_PCT_home+FG3_PCT_away, data=train, mtry=4,importance=TRUE)
+```
+
+### Bagging Preformance Metrics  
+```{r}
+pred_bag <- predict(rf, newdata=test, type="response")
+acc_bag <- mean(pred_bag==test$HOME_TEAM_WINS)
+mcc_bag <- mcc(factor(pred_bag), test$HOME_TEAM_WINS)
+print(paste("accuracy=", acc_bag))
+print(paste("mcc=", mcc_bag))
+```
+
+
+### AdaBoost
+
+```{r}
+library(adabag)
+adab1 <- boosting(HOME_TEAM_WINS~FG_PCT_home+FG_PCT_away+FG3_PCT_home+FG3_PCT_away, data=train, boos=TRUE, mfinal=20, coeflearn='Breiman')
+summary(adab1)
+```
+### AbaBoost Preformance Metrics 
+```{r}
+# your code here
+pred_boost <- predict(adab1, newdata=test, type="response")
+acc_boost <- mean(pred_boost$class==test$HOME_TEAM_WINS)
+mcc_boost <- mcc(factor(pred_boost$class), test$HOME_TEAM_WINS)
+print(paste("accuracy=", acc_boost))
+print(paste("mcc=", mcc_boost))
+```
+
+### XGBoost
+
+```{r}
+library(xgboost)
+train_label <- ifelse(train$HOME_TEAM_WINS==1, 1, 0)
+train_matrix <- data.matrix(train[, -15])
+model <- xgboost(data=train_matrix, label=train_label,
+                 nrounds=100, objective='binary:logistic')
+```
+### XGBoost Preformance Metrics
+```{r}
+test_label <- ifelse(test$HOME_TEAM_WINS==1, 1, 0)
+test_matrix <- data.matrix(test[, -15])
+probs_xgb <- predict(model, test_matrix)
+pred_xgb <- ifelse(probs_xgb>0.5, 1, 0)
+acc_xgb <- mean(pred_xgb==test_label)
+mcc_xgb <- mcc(pred_xgb, test_label)
+print(paste("accuracy=", acc_xgb))
+print(paste("mcc=", mcc_xgb))
+```
+
+### Conclustion
+
+#### Write a summary of your results comparing how fast or slow the algorithms were versus their accuracies 
+
+- Random Forest ran the 2nd slowest and had an accuracy of about 81%. The model had a MCC of .603
+
+- Bagging ran the slowest out of all the models and had an accuracy of 81%. Bagging had a MCC ever so slightly less than the Random Forest model at .602
+
+- The Boosting model ran slightly faster than the Bagging model and about as fast as the Random Forest model. The Boosting model had a accuracy higher than both Random Forest and Bagging at 81.2% but had a slightly higher MCC score of .612
+
+- XGBoost ran the fastest and had the highest accuracy of 98% but also had the highest MCC at .997
+
+- The models on my R project were Logistic Regression, Naive Bayes and SVM. Their accuracies were 50.2%, 81% and 81.4% respectivly. The Random Forest, Bagging and Boosting ensemble models that I created here preformed about the same as my best preforming model (SVM) from the Project. However, the XGBoost model heavily outperformed all other models with an accuracy of 98%. 
+
+
+
+
+
+
+

@@ -1,0 +1,282 @@
+---
+title: "Homework 4"
+subtitle: "4375 Machine Learning with Dr. Mazidi"
+author: "Anthony Martinez | amm180005"
+date: "9/19"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+This script will run Logistic Regression and Naive Bayes on the BreastCancer data set which is part of package mlbench. 
+
+## Step 1: Data exploration
+
+* Load package mlbench, installing it at the console if necessary
+* Load data(BreastCancer)
+* Run str() and head() to look at the data
+* Run summary() on the Class column
+* Use R code to calculate and output the percentage in each class, with a label using paste()
+
+Comment on the types of predictors available in terms of their data types:
+
+```{r}
+# your code here
+if (!require("mlbench")){
+  install.packages("mlbench")
+}
+
+data("BreastCancer")
+as.data.frame(BreastCancer)
+str(BreastCancer)
+head(BreastCancer)
+percent <- summary(BreastCancer$Class)/699*100
+
+print(paste('The percentages of the benign class is: ', percent[1]))
+print(paste('The percentages of the malignant class is: ', percent[2]))
+
+```
+
+## Step 2: First logistic regression model
+
+* Cell.size and Cell.shape are in one of 10 levels
+* Build a logistic regression model called glm0, where Class is predicted by Cell.size and Cell.shape
+* Do you get any error or warning messages? Google the message and try to decide what happened
+* Run summary on glm0 to confirm that it did build a model
+* Write about why you think you got this warning message and what you could possibly do about it.  List the source of your information in a simple markdown link. 
+
+Your commentary here: 
+I get a warning message that says "glm.fit: fitted proababilities numerically 0 or 1 occured.
+After researching the warning I've learned that his occurs when a you fit a logistice regression model that predicts a probability of observation(s) in the data that are indistinguishable from 0 or 1. Usually, this is due to outliers What I could potentially 
+do is to remove any outlines from the data.
+[Source](https://www.statology.org/glm-fit-fitted-probabilities-numerically-0-or-1-occurred/)
+
+```{r}
+# your code here
+
+glm0 <- glm(BreastCancer$Class~BreastCancer$Cell.size+BreastCancer$Cell.shape, data=BreastCancer, family = binomial)
+summary(glm0)
+```
+
+## Step 3: Data Wrangling
+
+Notice in the summary() of glm0 that most of the levels of Cell.size and Cell.shape became predictors and that they had very high p-values, that is, they are not good predictors. We would need a lot more data to build a good logistic regression model this way. Many examples per factor level are generally required for model building. A better approach might be to just have 2 levels for each variable. 
+
+In this step:
+
+* Add two new columns to BreastCancer as listed below:
+  a.	Cell.small which is a binary factor that is 1 if Cell.size==1 and 0 otherwise
+  b.	Cell.regular which is a binary factor that is 1 if Cell.shape==1 and 0 otherwise
+* Run summary() on Cell.size and Cell.shape as well as the new columns
+* Comment on the distribution of the new columns
+* Do you think what we did is a good idea? Why or why not?
+
+Your commentary here: Yes this was a good idea. From the summary method we can see that more than half of the cell sizes are 1, so it makes more sense to categorize the cell sizes as 1 or not 1. The same can be said for the cell shape.
+
+```{r}
+# BreastCancer$Cell.small column
+BreastCancer$Cell.small <- 0
+BreastCancer$Cell.small[BreastCancer$Cell.size == 1] <- 1
+BreastCancer$Cell.small <- factor(BreastCancer$Cell.small)
+```
+
+```{r}
+# BreastCancer$Cell.regular column
+BreastCancer$Cell.regular <- 0
+BreastCancer$Cell.regular[BreastCancer$Cell.shape == 1] <- 1
+BreastCancer$Cell.regular <- factor(BreastCancer$Cell.regular)
+
+summary(BreastCancer$Cell.size)
+summary(BreastCancer$Cell.shape)
+
+summary(BreastCancer$Cell.small)
+summary(BreastCancer$Cell.regular)
+
+
+
+```
+
+## Step 4: Examine the relationship of malignancy to Cell.size and Cell.shape
+
+* Create conditional density plots using the original Cell.size and Cell.shape, but first, attach() the data to reduce typing
+* Then use par(mfrow=c(1,2)) to set up a 1x2 grid for two cdplot() graphs with Class~Cell.size and Class~Cell.shape
+* Observing the plots, write a sentence or two comparing size and malignant, and shape and malignant
+* Do you think our cutoff points for size==1 and shape==1 were justified now that you see this graph? Why or why not?
+
+Your commentary here: From the density plots we can see that for cell size==1 there are a lot of malignant cells. As the Cell.size increases there is a sharp increase in the benign cells. The same thing occurs for Cell.shape The cutoff points for size==1 and shape==1 are justified. 
+
+```{r}
+# your code 
+
+attach(BreastCancer)
+cdplot(Cell.size~Cell.shape)
+
+
+par(mfrow=c(1,2))
+cdplot(Class~Cell.size)
+cdplot(Class~Cell.shape)
+detach(BreastCancer)
+```
+
+## Step 5: Explore the new columns
+
+* Create plots (not cdplots) with the two new columns
+* Again, use par(mfrow=c(1,2)) to set up a 1x2 grid for two plot() graphs with Class~Cell.small and Class~Cell.regular
+* Now create two cdplot() graphs for the new columns
+* Compute and output with labels the following: ((Examples on p. 142 may help)
+  a.	calculate the percentage of malignant observations that are small 
+  b.	calculate the percentage of malignant observations that are not small
+  c.	calculate the percentage of malignant observations that are regular
+  d.	calculate the percentage of malignant observations that are not regular
+* Write whether you think small and regular will be good predictors
+
+Your commentary here: I would say that small and regular will be good predictors. This is because the majority of malignant are one type of size and shape.
+```{r}
+# plots here
+
+attach(BreastCancer)
+par(mfrow=c(1,2))
+plot(Class~Cell.small, xlab = "Cell.small", ylab = "Class")
+plot(Class~Cell.regular, xlab = "Cell.regular", ylab = "Class")
+
+par(mfrow=c(1,2))
+cdplot(Class~Cell.small)
+cdplot(Class~Cell.regular)
+
+# calculate the percentage of malignant observations that are small
+
+small <- c(
+nrow(BreastCancer[BreastCancer$Cell.small=="0",])/nrow(BreastCancer),
+nrow(BreastCancer[BreastCancer$Cell.small=="1",])/nrow(BreastCancer)
+)
+
+
+regular <- c(
+nrow(BreastCancer[BreastCancer$Cell.regular=="0",])/nrow(BreastCancer),
+nrow(BreastCancer[BreastCancer$Cell.regular=="1",])/nrow(BreastCancer)
+)
+
+
+detach(BreastCancer)
+```
+
+```{r}
+# calculations and output here
+print("Prior probability, small=no, small=yes:")
+small
+
+print("Prior probability, regular=no, regular=yes:")
+regular
+```
+
+
+## Step 6: Train/test split
+
+* Divide the data into 80/20 train/test sets, using seed 1234
+
+
+```{r}
+# your code here
+set.seed(1234)
+i <- sample(1:nrow(BreastCancer), .80*nrow(BreastCancer), replace=FALSE)
+train <- BreastCancer[i,]
+test <- BreastCancer[-i,]
+```
+
+
+## Step 7: Build a logistic regression model
+
+* Build a logistic regression model predicting malignant with two preditors: Cell.small and Cell. regular
+* Run summary() on the model
+* Which if any of the predictors are good predictors?
+* Comment on the model null variance versus residual variance and what it means
+* Comment on the AIC score
+
+Your commentary here: Cell.small and Cell.regular are good predictors. They both have p-values close to 0
+The null variance measures the lack of fit of the model only considering the intercepts. 
+The residual deviance measures the lack of fir of the entire model. We want to see the residual deviance much lower than Null deviance. Which is the case here.
+
+AIC stands for Akaike Information Criterion, it is based on the deviance The AIC score is useful for comparing models. The lower AIC is better. Notice that the AIC score is higher for this model than glm0 which means glm1 might be a better model for this data.
+
+```{r}
+# your code here
+glm1 <- glm(BreastCancer$Class~BreastCancer$Cell.small+BreastCancer$Cell.regular, data=train, family=binomial)
+summary(glm1)
+```
+
+## Step 8: Evaluate on the test data
+
+* Test the model on the test data 
+* Compute and output accuracy 
+* Output the confusion matrix and related stats using the confusionMatrix() function in  the caret package
+* Were the mis-classifications more false positives or false negatives?
+
+Your commentary here:
+
+```{r}
+# your code here
+probs <- predict(glm1, newdata=test, type="response")
+pred <- ifelse(probs>0.5, 2, 1)
+
+# calculate and ouput accuracy
+acc <- mean(pred==as.integer(test$Class))
+print(paste("glm1 accuracy = ", acc))
+
+library(caret) 
+#confusionMatrix(as.factor(pred),reference=test$Class)
+ 
+```
+
+## Step 9: Model coefficients
+
+* The coefficients from the model are in units of logits. Extract and output the coefficient of Cell.small with glm1\$coefficients[]
+* Find the estimated probability of malignancy if Cell.small is true using exp(). See the example on p. 107 of the pdf.
+* Find the probability of malignancy if Cell.small is true over the whole BreastCancer data set and compare results. Are they close? Why or why not?
+
+Your commentary here:
+
+```{r}
+# your code here
+
+```
+
+## Step 10: More logistic regression models
+
+* Build two more models, glm_small using only Cell.small, and glm_regular using Cell.regular as the predictor
+* Use anova(glm_small, glm_regular, glm1) to compare all 3 models, using whatever names you used for your models. Analyze the results of the anova(). 
+* Also, compare the 3 AIC scores of the models. Feel free to use the internet to help you interpret AIC scores.
+
+Your commentary here:
+
+```{r}
+# your code here
+```
+
+## Step 11: A Naive Bayes model
+
+* Build a Naive Bayes Model Class ~ Cell.small + Cell.regular on the training data using library e1071
+* Output the model parameters 
+* Aand nswer the following questions:
+  a.	What percentage of the training data is benign?
+  b.	What is the likelihood that a malignant sample is not small?
+  c.	What is the likelihood that a malignant sample is not regular?
+
+Your commentary here:
+
+```{r}
+# your code here
+```
+
+## Step 12: Evaluate the model
+
+* Predict on the test data with Naive Bayes model
+* Output the confusion matrix
+* Are the results the same or different? Why do you think that is the case?
+
+Your commentary here:
+
+```{r}
+# your code here
+```
+

@@ -1,0 +1,226 @@
+---
+title: "Homework 6"
+subtitle: "4375 Machine Learning with Dr. Mazidi"
+author: "Anthony Martinez | amm180005"
+date: "10/3/21"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+# Problem 1: Comparison with Linear Regression
+
+### Step 1. Load Auto data and make train/test split
+
+Using the Auto data in package ISLR, set seed to 1234 and divide into 75% train, 25% test
+
+```{r}
+# your code here
+library(ISLR)
+df <- Auto
+attach(df)
+
+set.seed(1234)
+i <- sample(1:nrow(df), round(nrow(df)*0.75), replace=FALSE)
+train <- df[i,]
+test <- df[-i,]
+
+
+```
+
+### Step 2. Build  linear regression model
+
+Build a linear regression model on the train data, with mpg as the target, and cylinders, displacement, and horsepower as the predictors.  Output a summary of the model and plot the model to look at the residuals plots.
+
+```{r}
+# your code here
+lm1 <- lm(mpg~cylinders+displacement+horsepower, data=train)
+summary(lm1)
+plot(lm1)
+detach(df)
+```
+
+### Step 3. Evaluate on the test data
+
+Evaluate the model on the test data. Output correlation and mse.
+
+```{r}
+# your code here
+pred <- predict(lm1, newdata=test)
+cor_lm1 <- cor(pred,test$mpg)
+mse_lm1 <- mean((pred-test$mpg)^2)
+
+print(paste("cor:", cor_lm1))
+print(paste("mse:", mse_lm1))
+
+
+```
+
+### Step 4. Try knn
+
+Use knnreg() in library caret to fit the training data. Use the default k=1. Output your correlation and mse.
+
+```{r}
+# your code here
+library(caret)
+
+fit <- knnreg(train[,2:4],train[,1], k=1)
+
+predict_knn <- predict(fit, test[,2:4])
+cor_knn <- cor(predict_knn, test$mpg)
+mse_knn <- mean((predict_knn-test$mpg)^2)
+
+print(paste("cor:", cor_knn))
+print(paste("mse:", mse_knn))
+
+
+```
+
+### Step 5. Analysis
+
+a.	Compare correlation metric that each algorithm achieved. 
+Your commentary here:
+The correlation for was slightly higher for the knn model than the linear regression model. Which means knn worked a slightly better for this data
+
+b.	Compare the mse metric that each algorithm achieved. Your commentary here:
+
+The MSE was lower for the knn model in comparison to the linear model. This means knn worked slightly better for this data set. Recall, we want to minimize errors. Having two models with similar correlations we would want to take the model with a lower MSE. 
+
+c.	Why do you think that the mse metric was so different compared to the correlation metric?  Your commentary here:
+
+Clustering algorithms work best when the data is scaled. If we were to scale the data and re run the knn algorithm the MSE would most likely be lower for the knn model.
+
+d.	Why do you think that kNN outperformed linear regresssion on this data? In your 2-3 sentence explanation, discuss bias of the algorithms. Your commentary here:
+
+The data here was very scattered. It was hard to see any relationship when we plotted the residuals. Because of this it makes sense that linear regression would preform poorly on this data.Recall that linear regression is a high bias algorithm. Meaning, it will try to find a line of best fit even if one does not exist.  Since we chose a small K value for the knn model there will be low bias and high variance. 
+
+
+
+# Problem 2: Comparison with Logistic Regression
+
+### Step 1.  Load Breast Cancer data, create regular and small factors, and divide into train/test
+
+Using the BreastCancer data in package mlbench, create factor columns Cell.small and Cell.regular as we did in the last homework. Set seed to 1234 and divide into 75% train, 25% test. 
+
+*Advice*: use different names for test/train so that when you run parts of  your script over and over the names don’t collide.
+
+```{r}
+# your code here
+library(mlbench)
+data("BreastCancer")
+
+BreastCancer$Cell.small <-0
+BreastCancer$Cell.small[BreastCancer$Cell.size == 1] <-1
+BreastCancer$Cell.small <- factor(BreastCancer$Cell.small)
+
+BreastCancer$Cell.regular <-0
+BreastCancer$Cell.regular[BreastCancer$Cell.shape == 1] <-1
+BreastCancer$Cell.regular <- factor(BreastCancer$Cell.regular)
+
+set.seed(1234)
+i <- sample(1:nrow(BreastCancer), 0.75*nrow(BreastCancer), replace=FALSE)
+train1 <- BreastCancer[i,]
+test1 <- BreastCancer[-i,]
+
+
+```
+
+
+### Step 2. Build logistic regression model
+
+Build a logistic regression model with Class as the target and Cell.small and Cell.regular as the predictors. Output a summary of the model. 
+
+```{r}
+# your code here
+glm1 <- glm(Class~Cell.small+Cell.regular, data=train1, family=binomial)
+
+summary(glm1)
+```
+
+### Step 3. Evaluate on the test data
+
+Evaluate the model on the test data. Output accuracy and a table (or confusion matrix).
+
+```{r}
+# your code here
+probs1 <- predict(glm1, newdata = test1, type="response")
+pred1 <- ifelse(probs1>0.5, 2,1)
+acc2 <- mean(pred1==as.integer(test1$Class))
+acc2
+
+table(pred1,test1$Class)
+```
+ 
+### Step 4. Try knn
+
+Use the knn() function in package class to use the same target and predictors as step 2. Output accuracy and a table of results for knn. 
+
+```{r}
+# your code here
+library(class)
+
+# Split data so that the predictors are now just Cell.small and Cell.regular
+set.seed(1234)
+ind <- sample(2, nrow(BreastCancer), replace=TRUE, prob=c(0.75,0.25))
+train2 <- BreastCancer[ind==1, 12:13]
+test2 <- BreastCancer[ind==2, 12:13]
+
+trainLabels = BreastCancer[ind==1,11]
+testLabels = BreastCancer[ind==2,11]
+
+
+new_pred <- knn(train=train2, test=test2, cl=trainLabels, k=1)
+results <- new_pred==testLabels
+acc3 <- length(which(results==TRUE)) / length(results)
+acc3
+
+table(results,new_pred)
+```
+
+### Step 5. Try knn on original predictors
+
+Run kNN using predictor columns 2-6, 8-10, using default k=1.  Output accuracy and a table of results.
+
+Compare the results from step 4 above to a model which uses all the predictors. Provide some analysis on why you see these results:
+Commentary: 
+When knn on only the 2 predictors the correlation was slightly higher than when running knn on all predictors. When we look at the table, knn on the original predictors had 6 false predictions for benign while knn with 2 predictors had 0. 
+
+
+```{r}
+# your code here
+original_pred <- knn(train=train1[c(2:6,8:10)], test=test1[c(2:6,8:10)], cl=train1$Class, k=1)
+results2 <- original_pred==test1$Class
+acc4 <- length(which(results2==TRUE)) / length(results2)
+acc4
+
+table(results2, original_pred)
+
+```
+
+### Step 6. Try logistic regression on original predictors
+
+Run logistic regression using predictor columns 2-6, 8-10.  Output accuracy and a table of results.
+
+Compare the results from the logistic regression and knn algorithms using all predictors except column 7 in the steps above. Provide some analysis on why you see these results: 
+The accuracy for this model is slightly lower than the model from the previous step. Meaning the knn model worked better than the logistic regression model when using the original predictors (minus column 7). The cause for the slight preformance differnce is due to the fact that the logistic regression model missclassified 1 more benign cell compared to the knn model as shown in the tables.
+
+```{r}
+# your code here
+glm_all <- glm(train1$Class~., data=train1[c(2:6,8:10)], family = binomial)
+
+probsAll <- predict(glm_all, newdata = test1[c(2:6,8:10)], type="response")
+predAll <- ifelse(probsAll>0.5, 2,1)
+accAll <- mean(predAll==as.integer(test1$Class))
+accAll
+
+table(predAll, test1$Class)
+```
+
+
+
+
+
+
+
+
